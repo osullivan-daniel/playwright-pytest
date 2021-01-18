@@ -21,14 +21,18 @@ import pytest
 from playwright import sync_playwright
 from playwright.sync_api import Browser, BrowserContext, Page
 
+from pytest_playwright.browser_configs import BrowserConfigs
+
+browser_info = BrowserConfigs()
 
 def pytest_generate_tests(metafunc: Any) -> None:
     if "browser_name" in metafunc.fixturenames:
-        browsers = metafunc.config.option.browser or ["chromium"]
-        for browser in browsers:
-            if browser not in ["chromium", "firefox", "webkit"]:
+        browsers = metafunc.config.option.browser or [["chromium"]]
+        browsers = parse_browsers(browsers)
+        for browser, options in browsers.items():
+            if options['browserEngine'] not in ["chromium", "firefox", "webkit"]:
                 raise ValueError(
-                    f"'{browser}' is not allowed. Only chromium, firefox, or webkit are valid browser names."
+                    f"'{options['browserEngine']}' is not allowed. Only chromium, firefox, or webkit are valid browser names."
                 )
         metafunc.parametrize("browser_name", browsers, scope="session")
 
@@ -105,11 +109,14 @@ def launch_browser(
     browser_name: str,
 ) -> Callable[..., Browser]:
     def launch(**kwargs: Dict[Any, Any]) -> Browser:
+        bi = browser_info.get_key(browser_name)
         headful_option = pytestconfig.getoption("--headful")
         launch_options = {**browser_type_launch_args, **kwargs}
         if headful_option:
             launch_options["headless"] = False
-        browser = getattr(playwright, browser_name).launch(**launch_options)
+        if bi['executablePath']:
+            launch_options['executablePath'] = bi['executablePath']
+        browser = getattr(playwright, bi['browserEngine']).launch(**launch_options)
         return browser
 
     return launch
@@ -171,13 +178,19 @@ def browser_name() -> None:
     return None
 
 
+def parse_browsers(browser_options):
+    browser_info.set_dict(browser_options)
+    return browser_info.get_dict()
+
+
 def pytest_addoption(parser: Any) -> None:
     group = parser.getgroup("playwright", "Playwright")
     group.addoption(
         "--browser",
+        nargs='*',
         action="append",
         default=[],
-        help="Browser engine which should be used",
+        help="Browser engine which should be used, OPTIONAL: Browser display name in pytest, Path to browser executablePath",
     )
     parser.addoption(
         "--headful",
@@ -185,3 +198,6 @@ def pytest_addoption(parser: Any) -> None:
         default=False,
         help="Run tests in headful mode.",
     )
+
+
+

@@ -35,6 +35,9 @@ pytest --browser firefox
 
 # Run tests in multiple browsers
 pytest --browser chromium --browser webkit
+
+# Run tests changing the displayed name and execution path
+pytest --browser chromium edge '/opt/microsoft/msedge-dev/microsoft-edge'
 ```
 
 If you want to add the CLI arguments automatically without specifying them, you can use the [pytest.ini](https://docs.pytest.org/en/stable/reference.html#ini-options-ref) file:
